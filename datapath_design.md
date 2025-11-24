@@ -3,66 +3,93 @@
 ## Diagrama do Datapath
 
 ```mermaid
-flowchart TD
-    %% Inputs
-    CLK[clk]
-    CLK_SLOW[clk_slow]
-    RST[reset]
-    RND[rnd_bit 2b]
-    BTN[button_i 4b]
+flowchart TB
+    %% Input Ports
+    subgraph IN["🔌 INPUT PORTS"]
+        direction LR
+        CLK["⏰ clk"]
+        RST["🔄 reset"]
+        RND["🎲 rnd[1:0]"]
+        BTN["🔘 btn[3:0]"]
+        SLOW["⏱️ clk_slow"]
+    end
     
-    %% Control Signals
-    SEQ_LOAD[seq_load]
-    SEQ_NEXT[seq_next]
-    SEQ_CMP[seq_cmp]
+    %% Control Interface
+    subgraph CTRL["⚡ CONTROL INTERFACE"]
+        direction LR
+        LOAD{"seq_load"}
+        NEXT{"seq_next"}
+        CMP_EN{"seq_cmp"}
+    end
     
-    %% Memory Elements
-    SEQ_MEM[Sequence Memory<br/>8x2 bits]
-    STEP_CNT[step_count<br/>0 to 8]
-    SHOW_IDX[show_idx<br/>0 to 8]
-    PLAY_IDX[play_idx<br/>0 to 8]
+    %% Memory Subsystem
+    subgraph MEM["💾 MEMORY SUBSYSTEM"]
+        direction TB
+        SEQ["📦 Sequence Memory<br/>8×2 RAM<br/>16 bits total"]
+        SCNT["🔢 Step Counter<br/>4-bit up counter<br/>range: 0-8"]
+        SIDX["👁️ Show Index<br/>4-bit counter<br/>display pointer"]
+        PIDX["🎮 Play Index<br/>4-bit counter<br/>input pointer"]
+    end
     
-    %% Logic Blocks
-    BTN_DET[Button Edge<br/>Detector]
-    CMP[Comparator]
-    LED_MUX[LED Mux]
+    %% Processing Engine
+    subgraph PROC["⚙️ PROCESSING ENGINE"]
+        direction TB
+        EDGE["📈 Edge Detector<br/>4-channel<br/>rising edge"]
+        CMP["⚖️ Comparator<br/>2-bit equality<br/>match logic"]
+        MUX["🔀 LED Multiplexer<br/>4:1 selector<br/>one-hot output"]
+        TMR["⏲️ Display Timer<br/>16-bit counter<br/>LED timing"]
+    end
     
-    %% Outputs
-    LEDS[leds_o 4b]
-    MATCH[match_flag]
-    END_F[end_flag]
+    %% Output Ports
+    subgraph OUT["📤 OUTPUT PORTS"]
+        direction LR
+        LEDS["💡 leds[3:0]"]
+        MATCH["✅ match_flag"]
+        END_F["🏁 end_flag"]
+    end
     
-    %% Connections
-    CLK --> SEQ_MEM
-    CLK --> STEP_CNT
-    CLK --> SHOW_IDX
-    CLK --> PLAY_IDX
-    CLK --> BTN_DET
+    %% Clock Tree (dotted lines)
+    CLK -.->|"🕐 system clock"| MEM
+    CLK -.->|"🕐 system clock"| PROC
+    RST -.->|"🔄 async reset"| MEM
+    RST -.->|"🔄 async reset"| PROC
     
-    RST --> SEQ_MEM
-    RST --> STEP_CNT
-    RST --> SHOW_IDX
-    RST --> PLAY_IDX
+    %% Data Paths (thick lines)
+    RND ==>|"random data"| SEQ
+    BTN ==>|"button inputs"| EDGE
+    SLOW ==>|"slow clock"| TMR
     
-    RND --> SEQ_MEM
-    SEQ_LOAD --> SEQ_MEM
-    SEQ_LOAD --> STEP_CNT
+    %% Control Paths (normal lines)
+    LOAD --> SEQ
+    LOAD --> SCNT
+    NEXT --> MUX
+    CMP_EN --> PIDX
     
-    CLK_SLOW --> LED_MUX
-    SEQ_NEXT --> LED_MUX
-    SEQ_MEM --> LED_MUX
-    SHOW_IDX --> LED_MUX
-    LED_MUX --> LEDS
+    %% Internal Data Flow
+    SEQ --> MUX
+    SEQ --> CMP
+    SIDX --> MUX
+    PIDX --> CMP
+    EDGE --> CMP
+    TMR --> MUX
     
-    BTN --> BTN_DET
-    BTN_DET --> CMP
-    SEQ_MEM --> CMP
-    PLAY_IDX --> CMP
-    CMP --> MATCH
+    %% Output Connections
+    MUX ==>|"LED data"| LEDS
+    CMP ==>|"comparison result"| MATCH
+    SIDX ==>|"sequence complete"| END_F
     
-    SEQ_CMP --> PLAY_IDX
-    SHOW_IDX --> END_F
-    STEP_CNT --> END_F
+    %% Styling
+    classDef inputStyle fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef memStyle fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef procStyle fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef outputStyle fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef ctrlStyle fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    
+    class CLK,RST,RND,BTN,SLOW inputStyle
+    class SEQ,SCNT,SIDX,PIDX memStyle
+    class EDGE,CMP,MUX,TMR procStyle
+    class LEDS,MATCH,END_F outputStyle
+    class LOAD,NEXT,CMP_EN ctrlStyle
 ```
 
 ## Componentes Principais
